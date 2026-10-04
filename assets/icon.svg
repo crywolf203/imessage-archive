@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+  <title id="title">iMessage Archive</title>
+  <rect x="6" y="6" width="116" height="116" rx="22" fill="#163d36"/>
+  <path d="M29 31h70v45H60L40 92V76H29z" fill="#38b899"/>
+  <path d="M46 44h36M46 56h26" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+  <rect x="75" y="81" width="29" height="23" rx="3" fill="#e5f1ec"/>
+  <path d="M72 81h35M85 91h9" fill="none" stroke="#163d36" stroke-width="4" stroke-linecap="round"/>
+</svg>

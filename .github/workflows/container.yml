@@ -23,6 +23,7 @@ jobs:
       - run: pip install -r app/requirements.txt
       - run: python tests/smoke.py
       - run: python tests/auth_smoke.py
+      - run: python tests/deployment.py
 
   container:
     needs: test

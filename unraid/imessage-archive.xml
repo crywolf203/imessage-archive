@@ -1,27 +1,39 @@
 <?xml version="1.0"?>
 <Container version="2">
-  <Name>iMessage Archive</Name>
+  <Name>imessage-archive</Name>
   <Repository>ghcr.io/crywolf203/imessage-archive:latest</Repository>
   <Registry>https://github.com/crywolf203/imessage-archive/pkgs/container/imessage-archive</Registry>
   <Network>bridge</Network>
+  <MyIP/>
+  <Shell>bash</Shell>
   <Privileged>true</Privileged>
   <WebUI>http://[IP]:[PORT:8080]/</WebUI>
-  <Overview>Back up a trusted iPhone, export messages with imessage-exporter, search conversations, and create bounded PDF archives.</Overview>
-  <Category>Backup: Other:</Category>
-  <Support>https://github.com/crywolf203/imessage-archive/issues</Support>
+  <Overview>Back up a trusted, unlocked iPhone with libimobiledevice and browse Messages using imessage-exporter. Includes indexed search, scrollable conversation parts, HTML/text/CSV/ZIP exports, and resumable PDF rendering with image quality controls and progress. Requires a Linux amd64 host and USB pairing before backup. Privileged mode grants broad host access for USB hotplug: install only on a trusted private server. Encrypted backups are supported, but generated exports are not encrypted. Set a unique administrator password and session secret before use. Scheduled Wi-Fi backup requires an already paired, network-visible device.</Overview>
+  <Category>Backup: Tools:Utilities</Category>
+  <Support>https://github.com/crywolf203/unraid-templates/issues</Support>
   <Project>https://github.com/crywolf203/imessage-archive</Project>
+  <TemplateURL>https://raw.githubusercontent.com/crywolf203/unraid-templates/main/templates/imessage-archive.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/crywolf203/imessage-archive/main/assets/icon.svg</Icon>
+  <ReadMe>https://github.com/crywolf203/unraid-templates/blob/main/docs/imessage-archive.md</ReadMe>
+  <License>https://github.com/crywolf203/imessage-archive/blob/main/LICENSE</License>
+  <Requires>Linux amd64, a data-capable USB cable, an unlocked trusted iPhone, and enough storage for a full iPhone backup plus generated exports. Do not expose the Web UI directly to the internet. Preserve existing mount paths when upgrading.</Requires>
+  <ExtraSearchTerms>iphone ios imessage messages sms backup pdf archive</ExtraSearchTerms>
   <Config Name="Web UI" Target="8080" Default="8087" Mode="tcp" Description="Web interface port" Type="Port" Display="always" Required="true" Mask="false"/>
   <Config Name="Backups" Target="/data/backups" Default="/mnt/cache/appdata/imessage-archive/backups" Mode="rw" Description="iPhone backups" Type="Path" Display="always" Required="true" Mask="false"/>
-  <Config Name="Exports" Target="/data/exports" Default="/mnt/user/iphone-message-archive/exports" Mode="rw" Description="HTML, text, and indexed library" Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="Exports" Target="/data/exports" Default="/mnt/user/iphone-message-archive/exports" Mode="rw" Description="HTML, text, media and portable ZIP files. Keep this share private." Type="Path" Display="always" Required="true" Mask="false"/>
   <Config Name="PDFs" Target="/data/pdfs" Default="/mnt/user/iphone-message-archive/pdfs" Mode="rw" Description="Generated PDFs" Type="Path" Display="always" Required="true" Mask="false"/>
   <Config Name="Configuration" Target="/data/config" Default="/mnt/cache/appdata/imessage-archive/config" Mode="rw" Description="Search index, history, and schedules" Type="Path" Display="always" Required="true" Mask="false"/>
   <Config Name="Pairing Records" Target="/var/lib/lockdown" Default="/mnt/cache/appdata/imessage-archive/lockdown" Mode="rw" Description="Persisted iPhone trust records" Type="Path" Display="always" Required="true" Mask="false"/>
-  <Config Name="USB Bus" Target="/dev/bus/usb" Default="/dev/bus/usb" Mode="rw" Description="USB access for the iPhone" Type="Device" Display="always" Required="true" Mask="false"/>
+  <Config Name="USB Bus" Target="/dev/bus/usb" Default="/dev/bus/usb" Mode="rw" Description="USB bus bind mount for device hotplug; privileged mode grants device access." Type="Path" Display="advanced" Required="true" Mask="false"/>
   <Config Name="Time zone" Target="TZ" Default="America/New_York" Description="Container time zone" Type="Variable" Display="always" Required="true" Mask="false"/>
-  <Config Name="Administrator" Target="APP_USER" Default="aaron" Description="Administrator username" Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="Administrator" Target="APP_USER" Default="admin" Description="Administrator username" Type="Variable" Display="always" Required="true" Mask="false"/>
   <Config Name="Administrator password" Target="APP_PASSWORD" Default="" Description="Use a long unique password" Type="Variable" Display="always" Required="true" Mask="true"/>
   <Config Name="Read-only username" Target="VIEWER_USER" Default="viewer" Description="Optional account that can browse and download only" Type="Variable" Display="advanced" Required="false" Mask="false"/>
   <Config Name="Read-only password" Target="VIEWER_PASSWORD" Default="" Description="Leave blank to disable the read-only account" Type="Variable" Display="advanced" Required="false" Mask="true"/>
-  <Config Name="Session secret" Target="FLASK_SECRET_KEY" Default="" Description="Long random value retained across upgrades" Type="Variable" Display="advanced" Required="true" Mask="true"/>
+  <Config Name="Session secret" Target="FLASK_SECRET_KEY" Default="" Description="Paste a value from openssl rand -hex 32; retain it across upgrades." Type="Variable" Display="always" Required="true" Mask="true"/>
   <Config Name="Secure cookies" Target="COOKIE_SECURE" Default="0" Description="Use 1 only when the Web UI is served through HTTPS" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="USB multiplexer" Target="START_USBMUXD" Default="1" Description="Start the container USB service. Only one usbmuxd should own the phone; do not run competing backup containers." Type="Variable" Display="advanced" Required="false" Mask="false">1</Config>
+  <Config Name="Conversation part size" Target="LIBRARY_CHUNK_MESSAGES" Default="300" Description="Messages per viewer/PDF part; smaller parts reduce browser and PDF memory use." Type="Variable" Display="advanced" Required="false" Mask="false">300</Config>
+  <Config Name="Image workers" Target="PDF_IMAGE_WORKERS" Default="2" Description="Concurrent PDF image conversions. Higher values need more RAM." Type="Variable" Display="advanced" Required="false" Mask="false">2</Config>
+  <Config Name="PDF part timeout" Target="PDF_TIMEOUT_SECONDS" Default="900" Description="Maximum seconds per Chromium render; successful parts are resumable." Type="Variable" Display="advanced" Required="false" Mask="false">900</Config>
 </Container>

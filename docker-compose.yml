@@ -15,6 +15,9 @@ services:
       start_period: 30s
     ports:
       - "${WEB_PORT:-8087}:8080"
+    labels:
+      net.unraid.docker.webui: "http://[IP]:[PORT:8080]/"
+      net.unraid.docker.icon: "https://raw.githubusercontent.com/crywolf203/imessage-archive/main/assets/icon.svg"
     environment:
       TZ: "${TZ:-America/New_York}"
       APP_USER: "${APP_USER:-aaron}"

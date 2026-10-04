@@ -26,6 +26,8 @@ Backups and the search database stay on cache for responsive incremental updates
 
 ## Install or upgrade on Unraid
 
+For installation without building locally, use the [published-image Compose guide](docs/compose.md). The canonical Community Applications template lives in [crywolf203/unraid-templates](https://github.com/crywolf203/unraid-templates/blob/main/templates/imessage-archive.xml). Publishing that file is not, by itself, confirmation of a Community Applications listing.
+
 For an existing install, record its current storage mappings before extracting the new files:
 
 ```sh
@@ -136,7 +138,7 @@ After pushing to GitHub, copy `unraid/imessage-archive.xml` to Unraid's user-tem
 
 The workflow runs the bundled smoke tests before publishing. After the first successful workflow, open the package settings on GitHub and change the container package visibility to **Public** so an unauthenticated Unraid server can pull it.
 
-The **Verify published image** workflow then starts a disposable container and checks real Chromium PDF output with and without images, HEIC conversion, 10,450 indexed sample messages, CSV, and portable ZIP exports. Its artifact records indexing, search-page, and PDF timings. It uses generated sample data and does not connect to an iPhone.
+The **Verify published image** workflow starts the published image through the production Compose file with an isolated CI override. It checks real Chromium PDF output with and without images, HEIC conversion, 10,450 indexed sample messages, CSV, portable ZIP exports, and browser login/navigation. Its `compose-runtime-proof` artifact records indexing, search-page, and PDF timings plus desktop/mobile screenshots. It uses generated sample data and does not connect to an iPhone. See the [Compose guide](docs/compose.md) for exactly what this proves and its device-testing limits.
 
 Local test commands:
 

@@ -1,0 +1,31 @@
+# Override only for disposable integration tests. Requires Compose 2.24.4+.
+services:
+  imessage-archive:
+    container_name: !reset null
+    privileged: false
+    restart: "no"
+    ports: !override
+      - "127.0.0.1:18087:8080"
+    environment:
+      START_USBMUXD: "0"
+      SCHEDULE_ENABLED: "0"
+      NOTIFY_WEBHOOK_URL: ""
+      EXPORT_RETENTION_DAYS: "0"
+      PDF_RETENTION_DAYS: "0"
+      VIEWER_PASSWORD: ""
+      COOKIE_SECURE: "0"
+      MAGICK_THREAD_LIMIT: "2"
+    volumes: !override
+      - ci-backups:/data/backups
+      - ci-exports:/data/exports
+      - ci-pdfs:/data/pdfs
+      - ci-config:/data/config
+      - ci-lockdown:/var/lib/lockdown
+      - ./tests:/verification:ro
+
+volumes:
+  ci-backups:
+  ci-exports:
+  ci-pdfs:
+  ci-config:
+  ci-lockdown:

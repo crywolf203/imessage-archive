@@ -74,8 +74,12 @@ def command(*arguments):
 def fixture(name, count, images=False):
     with (EXPORT_ROOT / name).open("w", encoding="utf-8") as output:
         output.write(
-            '<html><head><style>.message{margin:8px;break-inside:avoid}'
-            'img{width:40px;height:40px}</style></head><body>'
+            '<html><head><style>body{font:14px/1.5 system-ui,sans-serif;padding:16px}'
+            '.message{display:flex;margin:12px 0;break-inside:avoid}'
+            '.sent{margin-left:auto;max-width:80%;background:#dcefe9;padding:12px 16px;border-radius:8px}'
+            '.timestamp{display:block;font-size:11px;color:#45564f}'
+            '.sender{display:block;font-weight:600}.bubble{display:block}'
+            'img{width:40px;height:40px;margin-top:8px}</style></head><body>'
         )
         for index in range(count):
             image = (
