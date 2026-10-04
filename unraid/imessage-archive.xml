@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>iMessage Archive</Name>
+  <Repository>ghcr.io/crywolf203/imessage-archive:latest</Repository>
+  <Registry>https://github.com/crywolf203/imessage-archive/pkgs/container/imessage-archive</Registry>
+  <Network>bridge</Network>
+  <Privileged>true</Privileged>
+  <WebUI>http://[IP]:[PORT:8080]/</WebUI>
+  <Overview>Back up a trusted iPhone, export messages with imessage-exporter, search conversations, and create bounded PDF archives.</Overview>
+  <Category>Backup: Other:</Category>
+  <Support>https://github.com/crywolf203/imessage-archive/issues</Support>
+  <Project>https://github.com/crywolf203/imessage-archive</Project>
+  <Config Name="Web UI" Target="8080" Default="8087" Mode="tcp" Description="Web interface port" Type="Port" Display="always" Required="true" Mask="false"/>
+  <Config Name="Backups" Target="/data/backups" Default="/mnt/cache/appdata/imessage-archive/backups" Mode="rw" Description="iPhone backups" Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="Exports" Target="/data/exports" Default="/mnt/user/iphone-message-archive/exports" Mode="rw" Description="HTML, text, and indexed library" Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="PDFs" Target="/data/pdfs" Default="/mnt/user/iphone-message-archive/pdfs" Mode="rw" Description="Generated PDFs" Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="Configuration" Target="/data/config" Default="/mnt/cache/appdata/imessage-archive/config" Mode="rw" Description="Search index, history, and schedules" Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="Pairing Records" Target="/var/lib/lockdown" Default="/mnt/cache/appdata/imessage-archive/lockdown" Mode="rw" Description="Persisted iPhone trust records" Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="USB Bus" Target="/dev/bus/usb" Default="/dev/bus/usb" Mode="rw" Description="USB access for the iPhone" Type="Device" Display="always" Required="true" Mask="false"/>
+  <Config Name="Time zone" Target="TZ" Default="America/New_York" Description="Container time zone" Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="Administrator" Target="APP_USER" Default="aaron" Description="Administrator username" Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="Administrator password" Target="APP_PASSWORD" Default="" Description="Use a long unique password" Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="Read-only username" Target="VIEWER_USER" Default="viewer" Description="Optional account that can browse and download only" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Read-only password" Target="VIEWER_PASSWORD" Default="" Description="Leave blank to disable the read-only account" Type="Variable" Display="advanced" Required="false" Mask="true"/>
+  <Config Name="Session secret" Target="FLASK_SECRET_KEY" Default="" Description="Long random value retained across upgrades" Type="Variable" Display="advanced" Required="true" Mask="true"/>
+  <Config Name="Secure cookies" Target="COOKIE_SECURE" Default="0" Description="Use 1 only when the Web UI is served through HTTPS" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+</Container>

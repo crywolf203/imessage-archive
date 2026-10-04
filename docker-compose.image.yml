@@ -1,0 +1,47 @@
+services:
+  imessage-archive:
+    image: ghcr.io/crywolf203/imessage-archive:latest
+    container_name: imessage-archive
+    restart: unless-stopped
+    privileged: true
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    ports:
+      - "${WEB_PORT:-8087}:8080"
+    environment:
+      TZ: "${TZ:-America/New_York}"
+      APP_USER: "${APP_USER:-aaron}"
+      APP_PASSWORD: "${APP_PASSWORD:?Set APP_PASSWORD in .env}"
+      VIEWER_USER: "${VIEWER_USER:-viewer}"
+      VIEWER_PASSWORD: "${VIEWER_PASSWORD:-}"
+      FLASK_SECRET_KEY: "${FLASK_SECRET_KEY:-}"
+      COOKIE_SECURE: "${COOKIE_SECURE:-0}"
+      START_USBMUXD: "${START_USBMUXD:-1}"
+      LOG_LINES: "${LOG_LINES:-300}"
+      PDF_TIMEOUT_SECONDS: "${PDF_TIMEOUT_SECONDS:-900}"
+      PDF_IMAGE_MAX_EDGE: "${PDF_IMAGE_MAX_EDGE:-1800}"
+      PDF_IMAGE_QUALITY: "${PDF_IMAGE_QUALITY:-80}"
+      PDF_IMAGE_WORKERS: "${PDF_IMAGE_WORKERS:-2}"
+      PDF_OPTIMIZE_MIN_BYTES: "${PDF_OPTIMIZE_MIN_BYTES:-524288}"
+      PDF_NICE_LEVEL: "${PDF_NICE_LEVEL:-5}"
+      PDF_RENDERER_PROCESSES: "${PDF_RENDERER_PROCESSES:-2}"
+      LIBRARY_CHUNK_MESSAGES: "${LIBRARY_CHUNK_MESSAGES:-300}"
+      SCHEDULE_ENABLED: "${SCHEDULE_ENABLED:-0}"
+      SCHEDULE_INTERVAL_HOURS: "${SCHEDULE_INTERVAL_HOURS:-24}"
+      SCHEDULE_NETWORK: "${SCHEDULE_NETWORK:-1}"
+      SCHEDULE_FULL: "${SCHEDULE_FULL:-0}"
+      NOTIFY_WEBHOOK_URL: "${NOTIFY_WEBHOOK_URL:-}"
+      NOTIFY_ON_SUCCESS: "${NOTIFY_ON_SUCCESS:-1}"
+      EXPORT_RETENTION_DAYS: "${EXPORT_RETENTION_DAYS:-0}"
+      PDF_RETENTION_DAYS: "${PDF_RETENTION_DAYS:-0}"
+    volumes:
+      - /mnt/cache/appdata/imessage-archive/backups:/data/backups
+      - /mnt/user/iphone-message-archive/exports:/data/exports
+      - /mnt/user/iphone-message-archive/pdfs:/data/pdfs
+      - /mnt/cache/appdata/imessage-archive/config:/data/config
+      - /mnt/cache/appdata/imessage-archive/lockdown:/var/lib/lockdown
+      - /dev/bus/usb:/dev/bus/usb
