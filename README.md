@@ -26,11 +26,19 @@ Backups and the search database stay on cache for responsive incremental updates
 
 ## Install or upgrade on Unraid
 
-Put `iphone-message-archive-v4.tar.gz` in `/mnt/cache/appdata/`, then run:
+For an existing install, record its current storage mappings before extracting the new files:
+
+```sh
+docker inspect imessage-archive --format '{{range .Mounts}}{{println .Destination "->" .Source}}{{end}}'
+```
+
+Keep those host paths in `docker-compose.yml` when upgrading. Older installs may have exports and PDFs under `/mnt/cache/appdata/imessage-archive/`; the new defaults use `/mnt/user/iphone-message-archive/`. Changing a mapping does not move existing files, so retain the old mappings until any storage migration is completed and checked.
+
+Put `iphone-message-archive-v4.0.1.tar.gz` in `/mnt/cache/appdata/`, then run:
 
 ```sh
 mkdir -p /mnt/cache/appdata/imessage-archive/build
-tar -xzf /mnt/cache/appdata/iphone-message-archive-v4.tar.gz \
+tar -xzf /mnt/cache/appdata/iphone-message-archive-v4.0.1.tar.gz \
   -C /mnt/cache/appdata/imessage-archive/build
 cd /mnt/cache/appdata/imessage-archive/build
 
@@ -127,6 +135,8 @@ The repository includes a GitHub Actions workflow that publishes an `amd64` imag
 After pushing to GitHub, copy `unraid/imessage-archive.xml` to Unraid's user-template location or use the Compose file directly. The image workflow publishes on the main branch, version tags, and manual runs.
 
 The workflow runs the bundled smoke tests before publishing. After the first successful workflow, open the package settings on GitHub and change the container package visibility to **Public** so an unauthenticated Unraid server can pull it.
+
+The **Verify published image** workflow then starts a disposable container and checks real Chromium PDF output with and without images, HEIC conversion, 10,450 indexed sample messages, CSV, and portable ZIP exports. Its artifact records indexing, search-page, and PDF timings. It uses generated sample data and does not connect to an iPhone.
 
 Local test commands:
 

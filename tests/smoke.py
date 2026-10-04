@@ -276,4 +276,12 @@ deletion = wait_for_job()
 assert deletion["status"] == "success", deletion
 assert not backup.exists()
 
+progress = module.JobController()
+progress.run_process(
+    [sys.executable, "-c", "print('[===] 80% Finished'); print('100%')"],
+    progress_label="Incremental backup",
+)
+assert progress.snapshot()["progress_current"] == 100
+assert progress.snapshot()["progress_total"] == 100
+
 print("core archive smoke tests passed")

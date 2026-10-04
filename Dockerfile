@@ -6,7 +6,7 @@ RUN cargo install imessage-exporter --version "${IMESSAGE_EXPORTER_VERSION}" --l
 
 FROM python:3.13-slim-bookworm
 
-ARG APP_VERSION=4.0.0
+ARG APP_VERSION=4.0.1
 LABEL org.opencontainers.image.title="iMessage Archive" \
       org.opencontainers.image.description="Unraid-friendly iPhone backup, indexed message viewer, and export appliance" \
       org.opencontainers.image.version="${APP_VERSION}" \

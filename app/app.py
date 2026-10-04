@@ -330,7 +330,7 @@ class JobController:
         for line in process.stdout:
             self.append(line)
             if progress_label:
-                match = re.search(r"(?:\]|\s)(\d{1,3})%\b", line)
+                match = re.search(r"(?:^|\]|\s)(\d{1,3})%(?!\w)", line)
                 if match:
                     percent = min(100, int(match.group(1)))
                     elapsed = self.snapshot()["elapsed_seconds"]

@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.0.1 - 2026-10-04
+
+- Fixed backup percentage parsing so progress and ETA update for normal tool output.
+- Added real image tests for Chromium PDFs, HEIC conversion, indexed browsing, CSV, and ZIP exports.
+- Documented how to retain existing Unraid storage mappings during upgrades.
+
 ## 4.0.0 - 2026-10-02
 
 - Added explicit USB and Wi-Fi targeting for multiple iPhones.

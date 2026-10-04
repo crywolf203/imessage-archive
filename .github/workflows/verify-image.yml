@@ -1,0 +1,55 @@
+name: Verify published image
+
+on:
+  workflow_run:
+    workflows: [Build container]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  runtime:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event != 'pull_request')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Start a disposable container
+        env:
+          BUILD_SHA: ${{ github.event.workflow_run.head_sha }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: |
+          image="ghcr.io/${REPOSITORY_OWNER,,}/imessage-archive:latest"
+          if [ -n "$BUILD_SHA" ]; then
+            image="ghcr.io/${REPOSITORY_OWNER,,}/imessage-archive:sha-${BUILD_SHA:0:7}"
+          fi
+          docker run -d --name imessage-runtime \
+            -e START_USBMUXD=0 -e SCHEDULE_ENABLED=0 \
+            -e APP_USER=runtime-test -e APP_PASSWORD=disposable-runtime-test-password \
+            -e FLASK_SECRET_KEY=disposable-runtime-test-secret \
+            -e MAGICK_THREAD_LIMIT=2 \
+            -v "$GITHUB_WORKSPACE/tests:/verification:ro" "$image"
+      - name: Exercise search, real PDFs, HEIC, and portable exports
+        run: |
+          docker exec imessage-runtime python /verification/container_runtime.py
+          docker cp imessage-runtime:/tmp/runtime-check-results.json runtime-check-results.json
+          cat runtime-check-results.json >> "$GITHUB_STEP_SUMMARY"
+      - name: Container logs
+        if: failure()
+        run: docker logs --tail=100 imessage-runtime
+      - uses: actions/upload-artifact@v4
+        with:
+          name: container-runtime-results
+          path: runtime-check-results.json
+      - name: Remove the disposable container
+        if: always()
+        run: docker rm -f imessage-runtime
