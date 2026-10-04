@@ -4,6 +4,10 @@ iMessage Archive is a self-hosted iPhone backup, message browser, search index, 
 
 `imessage-exporter` provides the message parsing plus HTML and text exports. This project adds the Docker image, USB and Wi-Fi backup workflow, browser interface, fast SQLite search, bounded conversation pages, CSV and ZIP downloads, resumable PDF rendering, scheduling, storage controls, and Unraid packaging. It is not affiliated with Apple, iMazing, or the `imessage-exporter` project.
 
+The following screenshot is the real app running through Compose with generated test messages, not a personal iPhone backup. [Compose proof and timings](docs/compose.md#automated-proof).
+
+![Compose Web UI with synthetic messages](docs/screenshots/desktop-dark.png)
+
 ## Important limits
 
 - An iPhone must be unlocked and trusted before a backup can start.

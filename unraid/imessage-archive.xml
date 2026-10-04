@@ -14,6 +14,8 @@
   <Project>https://github.com/crywolf203/imessage-archive</Project>
   <TemplateURL>https://raw.githubusercontent.com/crywolf203/unraid-templates/main/templates/imessage-archive.xml</TemplateURL>
   <Icon>https://raw.githubusercontent.com/crywolf203/imessage-archive/main/assets/icon.svg</Icon>
+  <Screenshot>https://raw.githubusercontent.com/crywolf203/imessage-archive/main/docs/screenshots/desktop-dark.png</Screenshot>
+  <Screenshot>https://raw.githubusercontent.com/crywolf203/imessage-archive/main/docs/screenshots/desktop-light.png</Screenshot>
   <ReadMe>https://github.com/crywolf203/unraid-templates/blob/main/docs/imessage-archive.md</ReadMe>
   <License>https://github.com/crywolf203/imessage-archive/blob/main/LICENSE</License>
   <Requires>Linux amd64, a data-capable USB cable, an unlocked trusted iPhone, and enough storage for a full iPhone backup plus generated exports. Do not expose the Web UI directly to the internet. Preserve existing mount paths when upgrading.</Requires>

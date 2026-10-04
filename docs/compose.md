@@ -57,6 +57,12 @@ It checks:
 
 Each successful run uploads `compose-runtime-proof` with timing results and desktop/mobile screenshots. All messages and images in these artifacts are synthetic. This proves the Compose app stack, not physical iPhone pairing, a real backup or Wi-Fi discovery: those still require an Unraid device test.
 
+The [October 4, 2026 Compose run](https://github.com/crywolf203/imessage-archive/actions/runs/37193181697) passed using app source `c885d20`. It indexed 10,450 synthetic messages in 1.421 seconds; the indexed search page returned in 0.051 seconds; a 450-message PDF took 2.918 seconds without images and 2.897 seconds with three tiny generated images. These GitHub-runner measurements are not an ETA for a real photo-heavy iPhone archive.
+
+![Real Compose Web UI in dark mode, with synthetic messages](screenshots/desktop-dark.png)
+
+[Light-mode screenshot](screenshots/desktop-light.png) and [mobile screenshot](screenshots/mobile.png) were captured by the same browser test.
+
 The CI override requires Compose 2.24.4 or newer because it uses `!override` and `!reset`. It is not an installation template and must never be used with your personal data.
 
 ## USB and security
