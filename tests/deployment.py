@@ -22,6 +22,8 @@ for field in ("Support", "Project", "TemplateURL", "Icon", "License", "ReadMe"):
 
 configs = {entry.get("Target"): entry for entry in container.findall("Config")}
 assert len(configs) == len(container.findall("Config")), "Duplicate configuration targets"
+for entry in configs.values():
+    assert (entry.text or "") == entry.get("Default"), entry.attrib
 for key in ("APP_PASSWORD", "FLASK_SECRET_KEY"):
     assert configs[key].get("Required") == "true"
     assert configs[key].get("Mask") == "true"
