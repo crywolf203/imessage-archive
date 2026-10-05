@@ -16,6 +16,7 @@ For a normal installation, choose a username, set a unique administrator passwor
 - [PDF performance](#pdf-performance)
 - [Automation and retention](#automation-and-retention)
 - [Common problems and their fixes](#health-and-troubleshooting)
+- [Credits and acknowledgements](#credits-and-acknowledgements)
 
 The following screenshot is the real app running through Compose with generated test messages, not a personal iPhone backup. [Compose proof and timings](docs/compose.md#automated-proof).
 
@@ -403,3 +404,26 @@ Substitute your chosen web port in the health-check URL. For multiple phones, se
 ## License
 
 GPL-3.0-only. See [LICENSE](LICENSE).
+
+## Credits and acknowledgements
+
+iMessage Archive would not be possible without the work of these open-source authors, maintainers, and contributors. Thank you for making these tools available to the community.
+
+| Project | Contribution to iMessage Archive |
+| --- | --- |
+| **[imessage-exporter](https://github.com/ReagentX/imessage-exporter), by [ReagentX](https://github.com/ReagentX) and contributors** | The core message parser, database diagnostics, HTML/text exports, and original exported conversation styling. This app invokes the upstream exporter; it does not claim authorship of that work. |
+| **[libimobiledevice](https://github.com/libimobiledevice/libimobiledevice)** | iPhone communication, trust/pairing tools, device information, and local backups through `idevicebackup2`. |
+| **[usbmuxd](https://github.com/libimobiledevice/usbmuxd)** | The device connection service used by the iPhone tools. |
+| **[Chromium](https://www.chromium.org/Home/)** | Server-side HTML layout and print-to-PDF rendering. |
+| **[ImageMagick](https://imagemagick.org/) and [libheif](https://github.com/strukturag/libheif)** | Image resizing and conversion, including HEIC/HEIF support for compatible exports and PDF images. |
+| **[FFmpeg](https://ffmpeg.org/)** | Audio and video conversion when requested through the exporter's conversion options. |
+| **[Flask](https://flask.palletsprojects.com/) and [Gunicorn](https://gunicorn.org/)** | The web framework and production web server. |
+| **[SQLite](https://sqlite.org/)** | The conversation catalog and full-text search engine. |
+| **[Beautiful Soup](https://www.crummy.com/software/BeautifulSoup/) and [lxml](https://lxml.de/)** | HTML parsing for the indexed viewer and print views. |
+| **[Pexpect](https://pexpect.readthedocs.io/)** | Handling interactive password prompts from device and export tools. |
+| **[pypdf](https://github.com/py-pdf/pypdf)** | Reading and merging completed PDF parts. |
+| **[Python](https://www.python.org/), [Debian](https://www.debian.org/), and [Tini](https://github.com/krallin/tini)** | The application runtime, container operating-system packages, and container process management. |
+
+This repository's custom work is the web dashboard, authentication, job orchestration, indexed search and bounded viewer pages, scheduling and storage controls, CSV/ZIP downloads, resumable PDF workflow, and Docker/Compose/Unraid packaging. Message parsing and the underlying backup, media, and rendering engines belong to the projects credited above.
+
+Upstream projects retain their own authorship and licenses. iMessage Archive is an independent integration, not an iMazing fork or an official release from any of the credited projects.
