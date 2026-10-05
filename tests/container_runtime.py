@@ -14,6 +14,7 @@ import zipfile
 from pathlib import Path
 
 from pypdf import PdfReader
+from exporter_fixture import verify_exporter
 
 
 BASE_URL = "http://127.0.0.1:8080"
@@ -109,11 +110,16 @@ else:
 
 assert request("/api/job", authenticated=False)[0] == 401
 assert request("/", authenticated=False)[0] == 302
-assert "4.3.0" in command("imessage-exporter", "--version")
-command("idevicebackup2", "--version")
-command("usbmuxd", "--version")
-command("ffmpeg", "-version")
-command("chromium", "--version")
+versions = {
+    "imessage-exporter": command("imessage-exporter", "--version").strip(),
+    "idevicebackup2": command("idevicebackup2", "--version").strip(),
+    "usbmuxd": command("usbmuxd", "--version").strip(),
+    "ffmpeg": command("ffmpeg", "-version").splitlines()[0],
+    "chromium": command("chromium", "--version").strip(),
+    "imagemagick": command("convert", "-version").splitlines()[0],
+}
+assert versions["imessage-exporter"].split()[-1] == os.environ["EXPECTED_EXPORTER_VERSION"], versions
+exporter_check = verify_exporter()
 
 EXPORT_ROOT.mkdir(parents=True, exist_ok=True)
 assert not list(EXPORT_ROOT.glob("*.html")), "Use a fresh disposable container"
@@ -169,8 +175,14 @@ with zipfile.ZipFile(io.BytesIO(package)) as archive:
     assert "attachments/fixture.png" in archive.namelist()
     assert any(name.startswith("pdf/") for name in archive.namelist())
 
+budgets = json.loads((Path(__file__).parent / "performance-budgets.json").read_text())
+assert TIMINGS.keys() == budgets.keys(), "Keep the performance checks and budgets in sync"
+for name, limit in budgets.items():
+    assert TIMINGS[name] <= limit, f"Performance regression: {name} took {TIMINGS[name]}s (limit {limit}s)"
+results = {"status": "passed", "timings": TIMINGS, "budgets_seconds": budgets,
+           "versions": versions, "exporter_fixture": exporter_check}
 Path("/tmp/runtime-check-results.json").write_text(
-    json.dumps({"status": "passed", "timings": TIMINGS}, indent=2) + "\n",
+    json.dumps(results, indent=2) + "\n",
     encoding="utf-8",
 )
-print(json.dumps({"status": "passed", "timings": TIMINGS}, indent=2))
+print(json.dumps(results, indent=2))

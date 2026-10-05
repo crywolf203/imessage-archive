@@ -38,7 +38,7 @@ for node in ast.walk(tree):
     runtime_defaults[node.args[0].value] = default.value if isinstance(default, ast.Constant) else None
 
 supported = set(runtime_defaults)
-for filename in ("docker-compose.yml", "docker-compose.image.yml", "entrypoint.sh"):
+for filename in ("docker-compose.yml", "docker-compose.image.yml", "docker-compose.staging.yml", "entrypoint.sh"):
     source = (root / filename).read_text(encoding="utf-8")
     supported.update(re.findall(r"\$\{([A-Z][A-Z0-9_]*)", source))
 for line in (root / ".env.example").read_text(encoding="utf-8").splitlines():

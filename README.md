@@ -1,6 +1,6 @@
 # iMessage Archive for Unraid
 
-iMessage Archive is a self-hosted iPhone backup, message browser, search index, and export appliance. It uses the open-source `libimobiledevice` tools to create local iPhone backups and ReagentX's `imessage-exporter` 4.3.0 to read and export Messages data.
+iMessage Archive is a self-hosted iPhone backup, message browser, search index, and export appliance. It uses the open-source `libimobiledevice` tools to create local iPhone backups and ReagentX's `imessage-exporter` to read and export Messages data. The pinned exporter version is defined in [Dockerfile](Dockerfile).
 
 `imessage-exporter` provides the message parsing plus HTML and text exports. This project adds the Docker image, USB and Wi-Fi backup workflow, browser interface, fast SQLite search, bounded conversation pages, CSV and ZIP downloads, resumable PDF rendering, scheduling, storage controls, and Unraid packaging. It is not affiliated with Apple, iMazing, or the `imessage-exporter` project.
 
@@ -16,6 +16,7 @@ For a normal installation, choose a username, set a unique administrator passwor
 - [PDF performance](#pdf-performance)
 - [Automation and retention](#automation-and-retention)
 - [Common problems and their fixes](#health-and-troubleshooting)
+- [Dependency updates and candidate testing](docs/updates.md)
 - [Credits and acknowledgements](#credits-and-acknowledgements)
 
 The following screenshot is the real app running through Compose with generated test messages, not a personal iPhone backup. [Compose proof and timings](docs/compose.md#automated-proof).
@@ -169,7 +170,7 @@ Changing a username/password does not revoke already signed-in sessions immediat
 
 | Variable | Default | What it does | How to use it |
 | --- | --- | --- | --- |
-| `IMAGE` | `ghcr.io/crywolf203/imessage-archive:latest` | Compose-only Docker image selection | `latest` follows new main-branch builds after a pull/update. Set `IMAGE=ghcr.io/crywolf203/imessage-archive:v4.0.1` to pin a released version. In Unraid edit **Repository** instead. Changing a tag does not move data. |
+| `IMAGE` | `ghcr.io/crywolf203/imessage-archive:latest` | Compose-only Docker image selection | `latest` follows manually approved, tested stable promotions after a pull/update, not every main-branch build. Set `IMAGE=ghcr.io/crywolf203/imessage-archive:v4.0.1` to pin a released version. In Unraid edit **Repository** instead. Changing a tag does not move data. |
 | `WEB_PORT` | `8087` | Compose-only host port mapped to container port `8080` | Change to an unused host port, for example `8088`, if another app uses 8087. Then open `http://SERVER:8088`. In Unraid change the host-side Web UI port. Keep the container port at 8080; internal PDF rendering uses it. |
 | `TZ` | `America/New_York` | Container time zone for locally formatted dates, job logs, and filenames | Use an IANA zone such as `America/Chicago`, `Europe/London`, or `Etc/UTC`, not a city nickname. Scheduling uses elapsed intervals, not a fixed wall-clock appointment. |
 | `START_USBMUXD` | `1` | Starts the USB multiplexer that libimobiledevice uses to communicate with the phone | Keep `1` for the supplied USB installation. Set `0` only if you have deliberately provided a working external usbmuxd/socket configuration, or an export-only setup with no live phone. This switch alone does not connect to a host service or enable Wi-Fi. Do not run competing USB backup services. |
@@ -234,13 +235,24 @@ These are included for completeness, not required installation settings. Build a
 
 | Variable | Default | What it does | How to use it |
 | --- | --- | --- | --- |
-| `IMESSAGE_EXPORTER_VERSION` | `4.3.0` | Docker build argument selecting the Rust exporter version | For source builds only, pass `--build-arg IMESSAGE_EXPORTER_VERSION=...` to `docker build` and verify CLI compatibility. The published image already includes its exporter; a Container Variable does not replace it. |
+| `IMESSAGE_EXPORTER_VERSION` | Pinned in [Dockerfile](Dockerfile) | Docker build argument selecting the Rust exporter version | For source builds only, pass `--build-arg IMESSAGE_EXPORTER_VERSION=...` to `docker build` and verify CLI compatibility. The published image already includes its exporter; a Container Variable does not replace it. Renovate proposes changes to this single default. |
 | `APP_VERSION` | `4.0.1` | Docker build argument for the image's version label | Release-maintainer metadata, not a feature switch or update command. Do not set it as a Container Variable to upgrade the app; pull the desired image tag instead. |
 | `PYTHONDONTWRITEBYTECODE` | `1` in the image | Prevents Python from creating bytecode-cache files | Internal image default; no normal user action needed. |
 | `PYTHONUNBUFFERED` | `1` in the image | Sends Python output to container logs without normal buffering | Internal image default; leave unchanged. |
 | `BACKUP_PASSWORD` | Not configured globally | Temporary child-process environment used for enabling iPhone backup encryption | Managed by the app for that requested operation only. Enter the encryption password in the web form, not in `.env` or the Unraid template. Setting this globally is not the supported way to unlock exports. |
 
-For a source build, `docker build --build-arg IMESSAGE_EXPORTER_VERSION=4.3.0 -t imessage-archive-local .` builds a local image; it does not start the app or supply mounts/login settings. The normal published-image workflow avoids this build entirely.
+For a source build, `docker build -t imessage-archive-local .` uses the pinned exporter default; it does not start the app or supply mounts/login settings. The normal published-image workflow avoids this build entirely.
+
+### Separate staging settings
+
+These apply only to `docker-compose.staging.yml` and `.env.staging`. They are not production Container Variables. See the [candidate testing guide](docs/updates.md#try-a-candidate-on-unraid); never use staging with production data mounts.
+
+| Variable | Default | What it does | How to use it |
+| --- | --- | --- | --- |
+| `STAGING_IMAGE` | Required; sample tag is a placeholder | Selects the candidate image for the separate test container | Paste the immutable `ghcr.io/...@sha256:...` reference from a successful candidate's metadata. |
+| `STAGING_PORT` | `8088` | Staging's host web port | Choose an unused port, leaving production's port unchanged. Open that port on your private LAN. |
+| `STAGING_PASSWORD` | Required; sample is a placeholder | Login password for the staging-only `staging-admin` account | Set a unique password in `.env.staging`; do not reuse production credentials. |
+| `STAGING_SECRET_KEY` | Required; sample is a placeholder | Signs staging-only login sessions | Generate with `openssl rand -hex 32` and retain in `.env.staging`, separate from the production secret. |
 
 ## First backup
 
@@ -336,13 +348,13 @@ The image includes ImageMagick, HEIF support, and FFmpeg. **Browser-compatible i
 
 ## GitHub and Unraid template
 
-The repository includes a GitHub Actions workflow that publishes an `amd64` image to `ghcr.io/crywolf203/imessage-archive`.
+The repository includes GitHub Actions workflows that build and regression-test `amd64` candidate images in `ghcr.io/crywolf203/imessage-archive`. Stable `latest` updates require manual promotion of a successful main-branch candidate.
 
-The canonical template and its setup guide live in [crywolf203/unraid-templates](https://github.com/crywolf203/unraid-templates/blob/main/docs/imessage-archive.md); follow the private Apps installation above when needed. The image workflow publishes on the main branch, version tags, and manual runs. Adding a template to an already enabled repository is not the same as immediate publication of a new app in CA. The submission portal can reject a duplicate repository as already enabled; do not create a duplicate just to force indexing.
+The canonical template and its setup guide live in [crywolf203/unraid-templates](https://github.com/crywolf203/unraid-templates/blob/main/docs/imessage-archive.md); follow the private Apps installation above when needed. Adding a template to an already enabled repository is not the same as immediate publication of a new app in CA. The submission portal can reject a duplicate repository as already enabled; do not create a duplicate just to force indexing.
 
-The workflow runs the bundled smoke tests before publishing. After the first successful workflow, open the package settings on GitHub and change the container package visibility to **Public** so an unauthenticated Unraid server can pull it.
+Renovate proposes dependency PRs with automatic merging disabled. **Build candidate** runs on pushes/PRs/manual runs and performs weekly uncached Debian-package refreshes. Candidates run the bundled smoke tests and real Compose/browser regressions before publication. After the first successful publish, the container package must be **Public** for unauthenticated Unraid pulls.
 
-The **Verify published image** workflow starts the published image through the production Compose file with an isolated CI override. It checks real Chromium PDF output with and without images, HEIC conversion, 10,450 indexed sample messages, CSV, portable ZIP exports, and browser login/navigation. Its `compose-runtime-proof` artifact records indexing, search-page, and PDF timings plus desktop/mobile screenshots. It uses generated sample data and does not connect to an iPhone. See the [Compose guide](docs/compose.md) for exactly what this proves and its device-testing limits.
+The shared candidate checks exercise the real exporter against a synthetic unencrypted iOS backup, real Chromium PDFs with and without images, HEIC conversion, 10,450 indexed sample messages, CSV, portable ZIP exports, and browser login/navigation. `compose-runtime-proof` records versions, timings, performance ceilings and desktop/mobile screenshots. **Verify published image** can rerun these checks on a selected image. No CI job connects to an iPhone. See the [update/testing guide](docs/updates.md) for setup, staging, promotion and device-testing limits, and the [Compose guide](docs/compose.md) for deployment proof.
 
 Local test commands:
 
@@ -351,6 +363,7 @@ python -m pip install -r app/requirements.txt
 python tests/smoke.py
 python tests/auth_smoke.py
 python tests/docs.py
+python tests/pipeline.py
 docker compose --env-file .env.example config --quiet
 ```
 

@@ -1,7 +1,14 @@
-name: Build container
+name: Build candidate
 
 on:
   workflow_dispatch:
+    inputs:
+      refresh_packages:
+        description: Refresh Debian packages without the build cache
+        type: boolean
+        default: false
+  schedule:
+    - cron: "23 8 * * 1"
   pull_request:
   push:
     branches: [main]
@@ -9,11 +16,15 @@ on:
 
 permissions:
   contents: read
-  packages: write
+
+concurrency:
+  group: candidate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -25,33 +36,70 @@ jobs:
       - run: python tests/auth_smoke.py
       - run: python tests/docs.py
       - run: python tests/deployment.py
+      - run: python tests/pipeline.py
 
-  container:
+  candidate:
     needs: test
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/metadata-action@v5
-        id: metadata
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/imessage-archive
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=ref,event=tag
-            type=sha
+      - name: Identify the exact candidate
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          base="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/imessage-archive"
+          tag="candidate-${sha:0:12}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          if [ -n "$PR_NUMBER" ]; then
+            tag="pr-${PR_NUMBER}-${sha:0:12}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          fi
+          echo "IMAGE=imessage-archive-ci:${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
+          echo "CANDIDATE_IMAGE=$base:$tag" >> "$GITHUB_ENV"
+          echo "SOURCE_SHA=$sha" >> "$GITHUB_ENV"
+          echo "EXPECTED_EXPORTER_VERSION=$(python .github/scripts/candidate.py version)" >> "$GITHUB_ENV"
       - uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64
-          push: true
-          tags: ${{ steps.metadata.outputs.tags }}
-          labels: ${{ steps.metadata.outputs.labels }}
+          load: true
+          pull: true
+          no-cache: ${{ github.event_name == 'schedule' || inputs.refresh_packages == true }}
+          tags: ${{ env.IMAGE }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ env.SOURCE_SHA }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Test the built image before publication
+        uses: ./.github/actions/verify-candidate
+        with:
+          image: ${{ env.IMAGE }}
+          exporter_version: ${{ env.EXPECTED_EXPORTER_VERSION }}
+      - name: Log in only after regression tests pass
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish only the tested candidate
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          docker tag "$IMAGE" "$CANDIDATE_IMAGE"
+          docker push "$CANDIDATE_IMAGE"
+          docker buildx imagetools inspect "$CANDIDATE_IMAGE" --format '{{json .Manifest}}' > candidate-manifest.json
+          python .github/scripts/candidate.py record candidate-manifest.json
+          echo '### Tested candidate (not latest)' >> "$GITHUB_STEP_SUMMARY"
+          cat candidate.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        with:
+          name: candidate-metadata
+          path: candidate.json
+          if-no-files-found: error
+          retention-days: 30

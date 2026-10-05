@@ -45,17 +45,18 @@ Do not use `down --volumes` as an upgrade command. Do not delete backups to solv
 
 ## Automated proof
 
-The [Verify published image workflow](https://github.com/crywolf203/imessage-archive/actions/workflows/verify-image.yml) runs the actual `docker-compose.image.yml` with a [CI-only override](../tests/compose.ci.yml). The override replaces every production mount with a disposable named volume, disables USB and scheduling, turns off privileged mode, and binds the UI only to the runner's loopback address.
+The [Build candidate workflow](https://github.com/crywolf203/imessage-archive/actions/workflows/container.yml) runs the actual built image with `docker-compose.image.yml` and a [CI-only override](../tests/compose.ci.yml) before publishing any candidate. [Verify published image](https://github.com/crywolf203/imessage-archive/actions/workflows/verify-image.yml) can rerun the same checks against a selected registry image. The override replaces every production mount with a disposable named volume, disables USB and scheduling, turns off privileged mode, and binds the UI only to the runner's loopback address.
 
 It checks:
 
-- Compose validation, anonymous image download, healthy startup and the HTTP service
+- Compose validation, healthy startup and the HTTP service; registry-image verification also exercises image download
+- Actual HTML/text export, contact filtering, diagnostics and viewer indexing of a generated unencrypted iOS backup
 - Authentication and a real browser sign-in with a disposable test account
 - Indexing and search for 10,450 generated messages, with bounded conversation pages
 - Real Chromium PDFs, including embedded images, HEIC-to-JPEG conversion, CSV and portable ZIP
 - Browser conversation navigation, dark/light modes, mobile width and loaded image assets
 
-Each successful run uploads `compose-runtime-proof` with timing results and desktop/mobile screenshots. All messages and images in these artifacts are synthetic. This proves the Compose app stack, not physical iPhone pairing, a real backup or Wi-Fi discovery: those still require an Unraid device test.
+Each successful run uploads `compose-runtime-proof` with timing results, performance ceilings, dependency versions and desktop/mobile screenshots. All messages and images in these artifacts are synthetic. This proves the Compose app stack and a small unencrypted exporter fixture, not physical iPhone pairing, real or encrypted backups, or Wi-Fi discovery: those still require a device test. See [dependency updates and staging](updates.md) for the separate test stack and manual stable-promotion gate.
 
 The [October 4, 2026 Compose run](https://github.com/crywolf203/imessage-archive/actions/runs/37193181697) passed using app source `c885d20`. It indexed 10,450 synthetic messages in 1.421 seconds; the indexed search page returned in 0.051 seconds; a 450-message PDF took 2.918 seconds without images and 2.897 seconds with three tiny generated images. These GitHub-runner measurements are not an ETA for a real photo-heavy iPhone archive.
 

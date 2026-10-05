@@ -2,8 +2,6 @@ services:
   imessage-archive:
     build:
       context: .
-      args:
-        IMESSAGE_EXPORTER_VERSION: "4.3.0"
     container_name: imessage-archive
     restart: unless-stopped
     privileged: true

@@ -7,6 +7,7 @@ services:
     ports: !override
       - "127.0.0.1:18087:8080"
     environment:
+      EXPECTED_EXPORTER_VERSION: "${EXPECTED_EXPORTER_VERSION:-}"
       START_USBMUXD: "0"
       SCHEDULE_ENABLED: "0"
       NOTIFY_WEBHOOK_URL: ""

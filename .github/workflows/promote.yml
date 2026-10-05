@@ -1,0 +1,65 @@
+name: Promote tested candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_run_id:
+        description: Successful main-branch Build candidate run ID
+        required: true
+        type: string
+      confirm:
+        description: I reviewed the test results and approve replacing latest
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: stable-image-promotion
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    if: github.ref == 'refs/heads/main' && inputs.confirm == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate successful main-branch provenance
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
+        run: |
+          [[ "$CANDIDATE_RUN_ID" =~ ^[0-9]+$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN_ID" > candidate-run.json
+          gh run download "$CANDIDATE_RUN_ID" --repo "$GITHUB_REPOSITORY" --name candidate-metadata --dir candidate-metadata
+          python .github/scripts/candidate.py validate candidate-run.json candidate-metadata/candidate.json
+      - name: Require candidate source to belong to main history
+        run: git merge-base --is-ancestor "$PROMOTION_SHA" origin/main
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check image revision before promotion
+        run: |
+          docker pull "$PROMOTION_IMAGE"
+          actual=$(docker image inspect "$PROMOTION_IMAGE" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')
+          test "$actual" = "$PROMOTION_SHA"
+      - name: Promote the exact tested digest without rebuilding
+        run: |
+          base="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/imessage-archive"
+          docker buildx imagetools create --prefer-index=false --tag "$base:latest" "$PROMOTION_IMAGE"
+          actual=$(docker buildx imagetools inspect "$base:latest" --format '{{.Manifest.Digest}}')
+          test "$actual" = "$PROMOTION_DIGEST"
+          echo "Promoted $PROMOTION_IMAGE to $base:latest" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,66 @@
+name: Verify candidate through Compose
+description: Run real image regression tests with isolated synthetic data
+inputs:
+  image:
+    description: Local image or immutable registry image reference
+    required: true
+  exporter_version:
+    description: Expected exporter version from the candidate source
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Validate and start disposable Compose
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+        EXPECTED_EXPORTER_VERSION: ${{ inputs.exporter_version }}
+        APP_USER: runtime-test
+        APP_PASSWORD: disposable-runtime-test-password
+        FLASK_SECRET_KEY: disposable-runtime-test-secret
+        COMPOSE_FILE: docker-compose.image.yml:tests/compose.ci.yml
+        COMPOSE_PROJECT_NAME: imessage-ci
+      run: |
+        docker compose config --quiet
+        docker compose up -d --no-build --wait --wait-timeout 90
+        docker compose exec -T imessage-archive python /verification/container_runtime.py
+        docker compose cp imessage-archive:/tmp/runtime-check-results.json runtime-check-results.json
+        cat runtime-check-results.json >> "$GITHUB_STEP_SUMMARY"
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.13"
+    - name: Check browser login, navigation and images
+      shell: bash
+      env:
+        APP_USER: runtime-test
+        APP_PASSWORD: disposable-runtime-test-password
+      run: |
+        python -m pip install playwright
+        python -m playwright install --with-deps chromium
+        python tests/compose_browser.py
+    - name: Disposable container logs
+      if: failure()
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+        APP_PASSWORD: disposable-runtime-test-password
+        COMPOSE_FILE: docker-compose.image.yml:tests/compose.ci.yml
+        COMPOSE_PROJECT_NAME: imessage-ci
+      run: docker compose logs --tail=100
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: compose-runtime-proof
+        path: |
+          runtime-check-results.json
+          compose-proof/*.png
+        retention-days: 30
+    - name: Remove only disposable CI volumes
+      if: always()
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+        APP_PASSWORD: disposable-runtime-test-password
+        COMPOSE_FILE: docker-compose.image.yml:tests/compose.ci.yml
+        COMPOSE_PROJECT_NAME: imessage-ci
+      run: docker compose down --volumes

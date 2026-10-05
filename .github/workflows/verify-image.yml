@@ -1,11 +1,16 @@
 name: Verify published image
 
 on:
-  workflow_run:
-    workflows: [Build container]
-    types: [completed]
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      image:
+        description: Exact ghcr.io candidate digest or released image to verify
+        type: string
+        required: true
+      exporter_version:
+        description: Exporter version included in this image
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -13,56 +18,11 @@ permissions:
 
 jobs:
   runtime:
-    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event != 'pull_request')
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    env:
-      APP_USER: runtime-test
-      APP_PASSWORD: disposable-runtime-test-password
-      FLASK_SECRET_KEY: disposable-runtime-test-secret
-      COMPOSE_FILE: docker-compose.image.yml:tests/compose.ci.yml
-      COMPOSE_PROJECT_NAME: imessage-ci
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Validate and start the published image through Compose
-        env:
-          BUILD_SHA: ${{ github.event.workflow_run.head_sha }}
-          REPOSITORY_OWNER: ${{ github.repository_owner }}
-        run: |
-          image="ghcr.io/${REPOSITORY_OWNER,,}/imessage-archive:latest"
-          if [ -n "$BUILD_SHA" ]; then
-            image="ghcr.io/${REPOSITORY_OWNER,,}/imessage-archive:sha-${BUILD_SHA:0:7}"
-          fi
-          echo "IMAGE=$image" >> "$GITHUB_ENV"
-          export IMAGE="$image"
-          docker compose version
-          docker compose config --quiet
-          docker compose pull
-          docker compose up -d --wait --wait-timeout 90
-          docker compose ps
-      - name: Exercise search, real PDFs, HEIC, and portable exports
-        run: |
-          docker compose exec -T imessage-archive python /verification/container_runtime.py
-          docker compose cp imessage-archive:/tmp/runtime-check-results.json runtime-check-results.json
-          cat runtime-check-results.json >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/verify-candidate
         with:
-          python-version: "3.13"
-      - name: Verify browser login and capture synthetic-data screenshots
-        run: |
-          python -m pip install playwright
-          python -m playwright install --with-deps chromium
-          python tests/compose_browser.py
-      - name: Container logs
-        if: failure()
-        run: docker compose logs --tail=100
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: compose-runtime-proof
-          path: |
-            runtime-check-results.json
-            compose-proof/*.png
-      - name: Remove only the disposable CI stack and volumes
-        if: always()
-        run: docker compose down --volumes
+          image: ${{ inputs.image }}
+          exporter_version: ${{ inputs.exporter_version }}

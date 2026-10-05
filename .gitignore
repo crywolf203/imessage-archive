@@ -1,6 +1,11 @@
 .env
+.env.staging
 __pycache__/
 *.pyc
 .DS_Store
 compose-proof/
 runtime-check-results.json
+candidate.json
+candidate-manifest.json
+candidate-run.json
+candidate-metadata/

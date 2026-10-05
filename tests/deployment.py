@@ -69,4 +69,15 @@ for volume in ci["volumes"]:
     assert volume["type"] == "volume" or (
         volume["target"] == "/verification" and volume.get("read_only")
     ), volume
-print("Unraid template and both production Compose contracts passed")
+result = subprocess.run(
+    ["docker", "compose", "--env-file", ".env.staging.example", "-f", "docker-compose.staging.yml", "config", "--format", "json"],
+    cwd=root, capture_output=True, text=True, check=True,
+)
+staging = json.loads(result.stdout)["services"]["imessage-archive-staging"]
+assert not staging.get("privileged", False)
+assert staging["container_name"] != compose_services[0]["container_name"]
+assert staging["environment"]["START_USBMUXD"] == "0"
+assert staging["environment"]["SCHEDULE_ENABLED"] == "0"
+assert all(volume["type"] == "volume" for volume in staging["volumes"])
+assert all(port["published"] != compose_services[0]["ports"][0]["published"] for port in staging["ports"])
+print("Unraid, production Compose, CI isolation and staging isolation contracts passed")

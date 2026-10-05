@@ -1,0 +1,35 @@
+services:
+  imessage-archive-staging:
+    image: "${STAGING_IMAGE:?Set STAGING_IMAGE to a tested candidate digest}"
+    container_name: imessage-archive-staging
+    restart: "no"
+    ports:
+      - "${STAGING_PORT:-8088}:8080"
+    environment:
+      APP_USER: staging-admin
+      APP_PASSWORD: "${STAGING_PASSWORD:?Set a unique STAGING_PASSWORD}"
+      FLASK_SECRET_KEY: "${STAGING_SECRET_KEY:?Set STAGING_SECRET_KEY}"
+      START_USBMUXD: "0"
+      SCHEDULE_ENABLED: "0"
+      NOTIFY_WEBHOOK_URL: ""
+      EXPORT_RETENTION_DAYS: "0"
+      PDF_RETENTION_DAYS: "0"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - staging-backups:/data/backups
+      - staging-exports:/data/exports
+      - staging-pdfs:/data/pdfs
+      - staging-config:/data/config
+      - staging-lockdown:/var/lib/lockdown
+
+volumes:
+  staging-backups:
+  staging-exports:
+  staging-pdfs:
+  staging-config:
+  staging-lockdown:

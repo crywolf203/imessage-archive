@@ -1,5 +1,6 @@
 .git
 .env
+.env.staging
 __pycache__/
 *.pyc
 .DS_Store
