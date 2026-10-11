@@ -28,6 +28,7 @@ from zeroconf import IPVersion, ServiceInfo, Zeroconf
 UDID = "00008140-1234567890ABCDEF"
 MAC = "02:00:00:00:00:42"
 SERVICE = "_apple-mobdev2._tcp.local."
+REQUESTS = []
 for name in ("serial", "autopair", "connection_type", "pair_record", "pairing_records_cache_folder"):
     assert name in inspect.signature(create_using_usbmux).parameters, name
 
@@ -51,6 +52,7 @@ class FakeLockdown(socketserver.BaseRequestHandler):
                 assert size <= 1024 * 1024
                 query = plistlib.loads(exact(self.request, size))
                 action = query.get("Request")
+                REQUESTS.append((action, query.get("Key")))
                 response = {"Request": action}
                 if action == "QueryType":
                     response["Type"] = "com.apple.mobile.lockdown"
@@ -127,12 +129,14 @@ def main():
                                      timeout=5, env=env, check=True)
                 assert not usb.stdout.strip(), "A Wi-Fi device was misreported as USB"
                 version = subprocess.run(["ideviceinfo", "-n", "-u", UDID, "-k", "ProductVersion"],
-                                         capture_output=True, text=True, timeout=15, env=env, check=True)
+                                         capture_output=True, text=True, timeout=15, env=env)
+                assert version.returncode == 0, (version.stdout, version.stderr)
                 assert version.stdout.strip() == "99.0", version.stdout
                 assert original == {path.name: path.read_bytes() for path in records.iterdir()}, \
                     "Discovery changed the synthetic trust records"
                 print("Real Bonjour discovery, network-only listing and lockdown query passed (synthetic, no TLS/heartbeat).")
             except Exception:
+                print("Synthetic lockdown request sequence:", REQUESTS, file=sys.stderr)
                 log.flush()
                 log.seek(0)
                 print(log.read(), file=sys.stderr)
