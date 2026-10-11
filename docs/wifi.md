@@ -9,6 +9,8 @@ This is an opt-in, experimental integration. It does not require Windows, Apple 
 
 The main app keeps its bridge network, existing web port, storage mounts, and stock USB service. Wi-Fi commands use a separate Unix socket. The helper does not publish a TCP usbmux port. Merely checking a Wi-Fi backup option, putting both devices on the same LAN, or changing the main app to Host networking does not complete setup.
 
+The pinned helper source includes a narrow [network-address compatibility patch](../patches/netmuxd-bsd-network-address.patch). Its upstream Linux build emits a native Linux address structure, while the bundled libimobiledevice expects the Apple/BSD wire format even on Linux. The patch uses that wire format for IPv4 and IPv6; the build runs both encoding tests and refuses to apply the patch if upstream context changes. It does not alter trust, TLS or heartbeat validation. The image labels identify the upstream revision and patch.
+
 ## Before Testing
 
 - Finish or cancel any running backup/export/PDF job.
