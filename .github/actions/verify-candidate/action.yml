@@ -43,6 +43,7 @@ runs:
         trap 'docker rm -f "$source_container" imessage-ci-wifi >/dev/null 2>&1 || true' EXIT
         docker cp "$source_container:/usr/local/bin/netmuxd" ./netmuxd-ci
         docker compose cp ./netmuxd-ci imessage-archive:/tmp/netmuxd-ci
+        docker compose exec -T imessage-archive /opt/wifi/bin/pip install --no-cache-dir zeroconf==0.148.0
         docker compose exec -T imessage-archive /opt/wifi/bin/python /verification/wifi_discovery_runtime.py /tmp/netmuxd-ci
         docker run -d --name imessage-ci-wifi --network imessage-ci_default \
           --read-only --cap-drop ALL --security-opt no-new-privileges:true \
