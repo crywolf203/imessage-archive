@@ -7,6 +7,9 @@ inputs:
   exporter_version:
     description: Expected exporter version from the candidate source
     required: true
+  wifi_image:
+    description: Optional local wireless sidecar image to verify alongside the app
+    required: false
 runs:
   using: composite
   steps:
@@ -26,6 +29,37 @@ runs:
         docker compose exec -T imessage-archive python /verification/container_runtime.py
         docker compose cp imessage-archive:/tmp/runtime-check-results.json runtime-check-results.json
         cat runtime-check-results.json >> "$GITHUB_STEP_SUMMARY"
+    - name: Test real wireless components with synthetic data
+      if: inputs.wifi_image != ''
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+        WIFI_IMAGE: ${{ inputs.wifi_image }}
+        APP_PASSWORD: disposable-runtime-test-password
+        COMPOSE_FILE: docker-compose.image.yml:tests/compose.ci.yml
+        COMPOSE_PROJECT_NAME: imessage-ci
+      run: |
+        source_container=$(docker create "$WIFI_IMAGE")
+        trap 'docker rm -f "$source_container" imessage-ci-wifi >/dev/null 2>&1 || true' EXIT
+        docker cp "$source_container:/usr/local/bin/netmuxd" ./netmuxd-ci
+        docker compose cp ./netmuxd-ci imessage-archive:/tmp/netmuxd-ci
+        docker compose exec -T imessage-archive /opt/wifi/bin/python /verification/wifi_discovery_runtime.py /tmp/netmuxd-ci
+        docker run -d --name imessage-ci-wifi --network imessage-ci_default \
+          --read-only --cap-drop ALL --security-opt no-new-privileges:true \
+          --memory 256m --cpus 1 \
+          --mount type=volume,src=imessage-ci_ci-lockdown,dst=/var/lib/lockdown,readonly \
+          --mount type=volume,src=imessage-ci_ci-wifi-run,dst=/run/imessage-wifi \
+          "$WIFI_IMAGE"
+        for attempt in $(seq 1 30); do
+          if docker compose exec -T imessage-archive test -S /run/imessage-wifi/usbmuxd.sock; then
+            break
+          fi
+          sleep 1
+        done
+        docker compose exec -T imessage-archive python -c "import pathlib,stat; p=pathlib.Path('/run/imessage-wifi/usbmuxd.sock'); assert stat.S_ISSOCK(p.stat().st_mode); assert stat.S_IMODE(p.stat().st_mode)==0o600; assert stat.S_IMODE(p.parent.stat().st_mode)==0o700"
+        docker compose exec -T -e USBMUXD_SOCKET_ADDRESS=UNIX:/run/imessage-wifi/usbmuxd.sock imessage-archive idevice_id -n
+        test "$(docker inspect imessage-ci-wifi --format '{{.State.Running}}')" = true
+        docker logs --tail=20 imessage-ci-wifi
     - uses: actions/setup-python@v5
       with:
         python-version: "3.13"
