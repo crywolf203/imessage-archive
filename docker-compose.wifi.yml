@@ -1,0 +1,25 @@
+# Opt-in source-build override. Does not change the app's network, port or storage paths.
+services:
+  imessage-archive:
+    environment:
+      WIFI_USBMUXD_SOCKET: /run/imessage-wifi/usbmuxd.sock
+    volumes:
+      - ${WIFI_RUN_PATH:-/mnt/cache/appdata/imessage-archive/wifi-run}:/run/imessage-wifi:ro
+  imessage-archive-wifi:
+    build:
+      context: .
+      target: wifi-discovery
+    image: ${WIFI_IMAGE:-imessage-archive-wifi:local}
+    restart: unless-stopped
+    network_mode: host
+    privileged: false
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    cpus: 1
+    environment:
+      RUST_LOG: info
+    volumes:
+      - ${WIFI_PAIRING_PATH:-/mnt/cache/appdata/imessage-archive/lockdown}:/var/lib/lockdown:ro
+      - ${WIFI_RUN_PATH:-/mnt/cache/appdata/imessage-archive/wifi-run}:/run/imessage-wifi
