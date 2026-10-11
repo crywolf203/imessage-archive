@@ -19,6 +19,9 @@ with sync_playwright() as playwright:
     page.locator('input[name="password"]').fill(os.environ["APP_PASSWORD"])
     page.get_by_role("button", name="Sign in", exact=True).click()
     expect(page.get_by_role("button", name="Render PDF", exact=True)).to_be_visible()
+    for name in ("Enable Wi-Fi", "Check Wi-Fi"):
+        expect(page.get_by_role("button", name=name, exact=True)).to_be_visible()
+        expect(page.get_by_role("button", name=name, exact=True)).to_be_disabled()
     frame = page.frame_locator("#conversationFrame")
     expect(frame.get_by_text("Runtime sample 0", exact=True)).to_be_visible()
     expect(frame.locator("img").first).to_be_visible()

@@ -74,6 +74,8 @@ EXPORT_RETENTION_DAYS = max(0, int(os.environ.get("EXPORT_RETENTION_DAYS", "0"))
 PDF_RETENTION_DAYS = max(0, int(os.environ.get("PDF_RETENTION_DAYS", "0")))
 PDF_HISTORY_FILE = PDFS_DIR / ".render-history.json"
 PRINT_TOKEN = secrets.token_urlsafe(24)
+WIFI_USBMUXD_SOCKET = os.environ.get("WIFI_USBMUXD_SOCKET", "").strip()
+WIFI_SETUP_PYTHON = Path("/opt/wifi/bin/python")
 
 for directory in (BACKUPS_DIR, EXPORTS_DIR, PDFS_DIR, CONFIG_DIR, PACKAGES_DIR):
     directory.mkdir(parents=True, exist_ok=True)
@@ -828,9 +830,9 @@ def healthz():
     return jsonify({"status": "healthy"})
 
 
-def quick_command(args: list[str], timeout: int = 30) -> tuple[int, str]:
+def quick_command(args: list[str], timeout: int = 30, env: dict | None = None) -> tuple[int, str]:
     try:
-        result = subprocess.run(args, text=True, capture_output=True, timeout=timeout, check=False)
+        result = subprocess.run(args, text=True, capture_output=True, timeout=timeout, check=False, env=env)
     except FileNotFoundError:
         return 127, f"{args[0]} is not installed"
     except subprocess.TimeoutExpired:
@@ -839,20 +841,28 @@ def quick_command(args: list[str], timeout: int = 30) -> tuple[int, str]:
     return result.returncode, output or "No output"
 
 
+def device_environment(network: bool, env: dict | None = None) -> dict | None:
+    if network and WIFI_USBMUXD_SOCKET:
+        result = (os.environ if env is None else env).copy()
+        result["USBMUXD_SOCKET_ADDRESS"] = "UNIX:" + WIFI_USBMUXD_SOCKET
+        return result
+    return env
+
+
 def list_devices(network: bool = False, refresh: bool = False) -> list[str]:
     with device_cache_lock:
         cached = device_cache.get(network)
         if not refresh and cached and time.monotonic() - cached[0] < 10:
             return list(cached[1])
-    args = ["idevice_id"]
-    if network:
-        args.append("-n")
-    args.append("-l")
-    code, output = quick_command(args, timeout=5)
+    args = ["idevice_id", "-n" if network else "-l"]
+    code, output = quick_command(args, timeout=5, env=device_environment(network))
     if code != 0 or output == "No output":
         devices = []
     else:
-        devices = [line.strip() for line in output.splitlines() if line.strip()]
+        devices = list(dict.fromkeys(
+            line.strip() for line in output.splitlines()
+            if re.fullmatch(r"[A-Za-z0-9-]{1,128}", line.strip())
+        ))
     with device_cache_lock:
         device_cache[network] = (time.monotonic(), devices)
     return list(devices)
@@ -1214,6 +1224,11 @@ def device_action(action: str):
         abort(400, "Select a connected USB device.")
     if not selected and len(available) == 1:
         selected = available[0]
+    if not selected:
+        abort(400, "Select a connected USB device.")
+    if jobs.snapshot()["busy"]:
+        flash("Another job is already running.", "error")
+        return redirect(url_for("index"))
     args = ["idevicepair"]
     if selected:
         args.extend(["-u", selected])
@@ -1221,6 +1236,56 @@ def device_action(action: str):
     code, output = quick_command(args)
     clear_device_cache()
     flash(output, "success" if code == 0 else "error")
+    return redirect(url_for("index"))
+
+
+@app.post("/device/wifi/enable")
+def enable_wifi():
+    available = list_devices(False, refresh=True)
+    selected = request.form.get("device_id", "").strip()
+    if not selected and len(available) == 1:
+        selected = available[0]
+    if selected not in available:
+        abort(400, "Select a connected USB device.")
+    if not WIFI_SETUP_PYTHON.is_file():
+        flash("This image does not include the Wi-Fi setup helper.", "error")
+        return redirect(url_for("index"))
+
+    def target() -> None:
+        jobs.run_process(
+            [str(WIFI_SETUP_PYTHON), str(Path(__file__).with_name("wifi_setup.py")),
+             "enable", "--udid", selected],
+            progress_label="Enabling iPhone Wi-Fi connections",
+        )
+        clear_device_cache()
+
+    if not jobs.start("Wi-Fi setup", target):
+        flash("Another job is already running.", "error")
+    return redirect(url_for("index"))
+
+
+@app.post("/device/wifi/check")
+def check_wifi():
+    available = list_devices(True, refresh=True)
+    selected = request.form.get("device_id", "").strip()
+    if not selected and len(available) == 1:
+        selected = available[0]
+    if selected not in available:
+        flash("No selected iPhone is available over Wi-Fi.", "error")
+        return redirect(url_for("index"))
+
+    def target() -> None:
+        code, output = quick_command(
+            ["ideviceinfo", "-n", "-u", selected, "-k", "ProductVersion"],
+            timeout=15, env=device_environment(True),
+        )
+        if code or output == "No output":
+            raise RuntimeError("Wi-Fi trust check failed. Unlock the iPhone and check its connection.")
+        jobs.append("Trusted Wi-Fi connection verified; no backup was started.")
+        clear_device_cache()
+
+    if not jobs.start("Wi-Fi connection check", target):
+        flash("Another job is already running.", "error")
     return redirect(url_for("index"))
 
 
@@ -1243,7 +1308,7 @@ def enable_encryption():
         if network:
             args.append("-n")
         args.extend(["-u", device_id, "-i", "encryption", "on"])
-        jobs.run_process(args, env=env)
+        jobs.run_process(args, env=device_environment(network, env))
 
     if not jobs.start("Enabling encrypted backups", target):
         flash("Another job is already running.", "error")
@@ -1304,7 +1369,7 @@ def run_iphone_backup(full: bool, network: bool, device_id: str | None = None) -
         args.append("--full")
     args.append(str(BACKUPS_DIR / "latest"))
     try:
-        jobs.run_process(args, progress_label=f"{mode.title()} backup")
+        jobs.run_process(args, env=device_environment(network), progress_label=f"{mode.title()} backup")
     except Exception as exc:
         catalog.finish_backup_run(run_id, "error", str(exc))
         raise
@@ -2175,6 +2240,14 @@ PAGE = r"""
       {% if usb_devices|length > 1 %}<select name="device_id" aria-label="USB device to pair">{% for device in usb_devices %}<option value="{{ device }}">{{ device }}</option>{% endfor %}</select>{% endif %}
       <button{% if not usb_devices %} disabled{% endif %}>Pair device</button>
     </form>
+    <form method="post" action="{{ url_for('enable_wifi') }}">
+      {% if usb_devices|length > 1 %}<select name="device_id" aria-label="USB device for Wi-Fi setup">{% for device in usb_devices %}<option value="{{ device }}">{{ device }}</option>{% endfor %}</select>{% endif %}
+      <button class="secondary"{% if not usb_devices or not wifi_setup_available %} disabled{% endif %}>Enable Wi-Fi</button>
+    </form>
+    <form method="post" action="{{ url_for('check_wifi') }}">
+      {% if network_devices|length > 1 %}<select name="device_id" aria-label="Wi-Fi device to check">{% for device in network_devices %}<option value="{{ device }}">{{ device }}</option>{% endfor %}</select>{% endif %}
+      <button class="secondary"{% if not network_devices %} disabled{% endif %}>Check Wi-Fi</button>
+    </form>
 
     <h2>Backup</h2>
     <form method="post" action="{{ url_for('enable_encryption') }}">
@@ -2591,6 +2664,7 @@ def index():
         network_devices=network_devices,
         device_targets=device_targets,
         device_ids=device_ids,
+        wifi_setup_available=WIFI_SETUP_PYTHON.is_file(),
         backups=backup_paths,
         backup_items=backup_items,
         backup_runs=catalog.backup_runs(),

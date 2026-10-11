@@ -1,0 +1,60 @@
+diff --git a/src/devices.rs b/src/devices.rs
+--- a/src/devices.rs
++++ b/src/devices.rs
+@@ -42,14 +42,9 @@
+                         .into(),
+                 );
+ 
+-                let bsd_sockaddr = cfg!(any(
+-                    target_os = "macos",
+-                    target_os = "ios",
+-                    target_os = "freebsd",
+-                    target_os = "netbsd",
+-                    target_os = "openbsd",
+-                    target_os = "dragonfly",
+-                ));
++                // NetworkAddress is Apple/BSD wire data, not a native sockaddr.
++                // libimobiledevice reads its length and family from bytes 0 and 1.
++                let bsd_sockaddr = true;
+ 
+                 let mut data = [0u8; 128];
+                 match device
+@@ -103,3 +98,38 @@
+         p
+     }
+ }
++
++#[cfg(test)]
++mod wire_address_tests {
++    use super::MuxerDevice;
++    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
++
++    fn address_data(address: IpAddr) -> Vec<u8> {
++        let device = MuxerDevice {
++            connection_type: "Network".into(),
++            device_id: 1,
++            interface_index: 1,
++            serial_number: "synthetic-wire-test".into(),
++            network_address: Some(address),
++            service_name: Some("_apple-mobdev2._tcp.local".into()),
++            connection_speed: None,
++            location_id: None,
++            product_id: None,
++        };
++        let properties = plist::Dictionary::from(&device);
++        properties.get("NetworkAddress").unwrap().as_data().unwrap().to_vec()
++    }
++
++    #[test]
++    fn ipv4_uses_apple_wire_format() {
++        let data = address_data(IpAddr::V4(Ipv4Addr::LOCALHOST));
++        assert_eq!(&data[..8], &[0x10, 0x02, 0, 0, 127, 0, 0, 1]);
++    }
++
++    #[test]
++    fn ipv6_uses_apple_wire_format() {
++        let data = address_data(IpAddr::V6(Ipv6Addr::LOCALHOST));
++        assert_eq!(&data[..2], &[0x1c, 0x1e]);
++        assert_eq!(&data[8..24], &Ipv6Addr::LOCALHOST.octets());
++    }
++}

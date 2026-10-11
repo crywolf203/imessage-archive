@@ -34,6 +34,8 @@ jobs:
       - run: pip install -r app/requirements.txt
       - run: python tests/smoke.py
       - run: python tests/auth_smoke.py
+      - run: python tests/wifi.py
+      - run: bash -n wifi-entrypoint.sh scripts/test-wifi-unraid.sh
       - run: python tests/docs.py
       - run: python tests/deployment.py
       - run: python tests/pipeline.py
@@ -41,7 +43,7 @@ jobs:
   candidate:
     needs: test
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     permissions:
       contents: read
       packages: write
@@ -63,6 +65,17 @@ jobs:
           echo "SOURCE_SHA=$sha" >> "$GITHUB_ENV"
           echo "EXPECTED_EXPORTER_VERSION=$(python .github/scripts/candidate.py version)" >> "$GITHUB_ENV"
       - uses: docker/build-push-action@v6
+        name: Build pinned wireless discovery service
+        with:
+          context: .
+          target: wifi-discovery
+          platforms: linux/amd64
+          load: true
+          pull: true
+          tags: ${{ env.IMAGE }}-wifi
+          cache-from: type=gha,scope=wifi
+          cache-to: type=gha,mode=max,scope=wifi
+      - uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64
@@ -80,6 +93,7 @@ jobs:
         with:
           image: ${{ env.IMAGE }}
           exporter_version: ${{ env.EXPECTED_EXPORTER_VERSION }}
+          wifi_image: ${{ env.IMAGE }}-wifi
       - name: Log in only after regression tests pass
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: docker/login-action@v3
@@ -92,6 +106,9 @@ jobs:
         run: |
           docker tag "$IMAGE" "$CANDIDATE_IMAGE"
           docker push "$CANDIDATE_IMAGE"
+          docker tag "$IMAGE-wifi" "$CANDIDATE_IMAGE-wifi"
+          docker push "$CANDIDATE_IMAGE-wifi"
+          echo "Wi-Fi test image: $CANDIDATE_IMAGE-wifi" >> "$GITHUB_STEP_SUMMARY"
           docker buildx imagetools inspect "$CANDIDATE_IMAGE" --format '{{json .Manifest}}' > candidate-manifest.json
           python .github/scripts/candidate.py record candidate-manifest.json
           echo '### Tested candidate (not latest)' >> "$GITHUB_STEP_SUMMARY"
