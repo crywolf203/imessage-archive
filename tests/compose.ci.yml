@@ -22,6 +22,7 @@ services:
       - ci-pdfs:/data/pdfs
       - ci-config:/data/config
       - ci-lockdown:/var/lib/lockdown
+      - ci-wifi-run:/run/imessage-wifi:ro
       - ./tests:/verification:ro
 
 volumes:
@@ -30,3 +31,4 @@ volumes:
   ci-pdfs:
   ci-config:
   ci-lockdown:
+  ci-wifi-run:
