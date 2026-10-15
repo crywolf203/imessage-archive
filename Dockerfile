@@ -4,7 +4,7 @@ FROM rust:1-bookworm AS exporter-builder
 ARG IMESSAGE_EXPORTER_VERSION
 RUN cargo install imessage-exporter --version "${IMESSAGE_EXPORTER_VERSION}" --locked
 
-FROM python:3.13-slim-bookworm
+FROM python:3.15-slim-bookworm@sha256:122756f3fe72c4f5d3d71897888204ee85774bc79de952555b8a474e1d0a5d53
 
 ARG APP_VERSION=4.0.1
 ARG IMESSAGE_EXPORTER_VERSION
