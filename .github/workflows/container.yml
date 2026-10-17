@@ -26,8 +26,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.13"
           cache: pip
@@ -46,8 +46,8 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
       - name: Identify the exact candidate
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -62,7 +62,7 @@ jobs:
           echo "CANDIDATE_IMAGE=$base:$tag" >> "$GITHUB_ENV"
           echo "SOURCE_SHA=$sha" >> "$GITHUB_ENV"
           echo "EXPECTED_EXPORTER_VERSION=$(python .github/scripts/candidate.py version)" >> "$GITHUB_ENV"
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           platforms: linux/amd64
@@ -82,7 +82,7 @@ jobs:
           exporter_version: ${{ env.EXPECTED_EXPORTER_VERSION }}
       - name: Log in only after regression tests pass
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -96,7 +96,7 @@ jobs:
           python .github/scripts/candidate.py record candidate-manifest.json
           echo '### Tested candidate (not latest)' >> "$GITHUB_STEP_SUMMARY"
           cat candidate.json >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         with:
           name: candidate-metadata
