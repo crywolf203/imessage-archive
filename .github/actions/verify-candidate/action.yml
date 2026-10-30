@@ -63,7 +63,7 @@ runs:
         docker logs --tail=20 imessage-ci-wifi
     - uses: actions/setup-python@v5
       with:
-        python-version: "3.13"
+        python-version: "3.15"
     - name: Check browser login, navigation and images
       shell: bash
       env:

@@ -32,14 +32,14 @@ FROM rust:1-bookworm AS exporter-builder
 ARG IMESSAGE_EXPORTER_VERSION
 RUN cargo install imessage-exporter --version "${IMESSAGE_EXPORTER_VERSION}" --locked
 
-FROM python:3.13-slim-bookworm AS wifi-python-builder
+FROM python:3.15-slim-bookworm@sha256:4e03260adeeebafccd084f3584e6b84823aba5651cfb53ef8a078ed441ddf9cd AS wifi-python-builder
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
     && rm -rf /var/lib/apt/lists/*
 COPY app/wifi-requirements.txt /build/wifi-requirements.txt
 RUN python -m venv /opt/wifi \
     && /opt/wifi/bin/pip install --no-cache-dir -r /build/wifi-requirements.txt
 
-FROM python:3.13-slim-bookworm
+FROM python:3.15-slim-bookworm@sha256:4e03260adeeebafccd084f3584e6b84823aba5651cfb53ef8a078ed441ddf9cd
 
 ARG APP_VERSION=4.0.1
 ARG IMESSAGE_EXPORTER_VERSION
