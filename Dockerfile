@@ -1,7 +1,7 @@
 ARG IMESSAGE_EXPORTER_VERSION=4.3.0
 ARG NETMUXD_REV=3771657a20f3880c287551ea716762f1d52dded5
 
-FROM rust:1-bookworm AS wifi-builder
+FROM rust:1-bookworm@sha256:9181b56c2a21ab1d5e73cffe04fc762426d30aa7fac3c91141dd033f49a7fc8b AS wifi-builder
 ARG NETMUXD_REV
 RUN apt-get update && apt-get install -y --no-install-recommends cmake pkg-config \
     && rm -rf /var/lib/apt/lists/*
@@ -14,7 +14,7 @@ RUN git clone https://github.com/jkcoxson/netmuxd.git netmuxd \
     && cargo test --release --locked --no-default-features --lib devices::wire_address_tests \
     && cargo build --release --locked --no-default-features
 
-FROM debian:bookworm-slim AS wifi-discovery
+FROM debian:bookworm-slim@sha256:99c0b25c46d0214d5a2091092e7908907dcaecd6a962cde0ac700acee222b6f3 AS wifi-discovery
 ARG NETMUXD_REV
 LABEL org.opencontainers.image.title="iMessage Archive Wi-Fi discovery" \
       org.opencontainers.image.licenses="LGPL-2.1-only" \
@@ -28,18 +28,18 @@ COPY wifi-entrypoint.sh /wifi-entrypoint.sh
 RUN chmod +x /wifi-entrypoint.sh
 ENTRYPOINT ["/usr/bin/tini", "--", "/wifi-entrypoint.sh"]
 
-FROM rust:1-bookworm AS exporter-builder
+FROM rust:1-bookworm@sha256:9181b56c2a21ab1d5e73cffe04fc762426d30aa7fac3c91141dd033f49a7fc8b AS exporter-builder
 ARG IMESSAGE_EXPORTER_VERSION
 RUN cargo install imessage-exporter --version "${IMESSAGE_EXPORTER_VERSION}" --locked
 
-FROM python:3.13-slim-bookworm AS wifi-python-builder
+FROM python:3.13-slim-bookworm@sha256:281d39ff02e3b389401586134ff9e6572954687822a58055ec07a60ded4e0b7f AS wifi-python-builder
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
     && rm -rf /var/lib/apt/lists/*
 COPY app/wifi-requirements.txt /build/wifi-requirements.txt
 RUN python -m venv /opt/wifi \
     && /opt/wifi/bin/pip install --no-cache-dir -r /build/wifi-requirements.txt
 
-FROM python:3.13-slim-bookworm
+FROM python:3.13-slim-bookworm@sha256:281d39ff02e3b389401586134ff9e6572954687822a58055ec07a60ded4e0b7f
 
 ARG APP_VERSION=4.0.1
 ARG IMESSAGE_EXPORTER_VERSION
