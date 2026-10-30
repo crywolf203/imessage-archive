@@ -12,6 +12,7 @@ For a normal installation, choose a username, set a unique administrator passwor
 - [Every variable, its default, and how to use it](#configuration-reference)
 - [Which password goes where](#passwords-and-the-session-secret)
 - [First backup](#first-backup)
+- [Wi-Fi setup and connection-only testing](docs/wifi.md)
 - [Export controls and downloads](#export-controls-and-downloads)
 - [PDF performance](#pdf-performance)
 - [Automation and retention](#automation-and-retention)
@@ -174,6 +175,10 @@ Changing a username/password does not revoke already signed-in sessions immediat
 | `WEB_PORT` | `8087` | Compose-only host port mapped to container port `8080` | Change to an unused host port, for example `8088`, if another app uses 8087. Then open `http://SERVER:8088`. In Unraid change the host-side Web UI port. Keep the container port at 8080; internal PDF rendering uses it. |
 | `TZ` | `America/New_York` | Container time zone for locally formatted dates, job logs, and filenames | Use an IANA zone such as `America/Chicago`, `Europe/London`, or `Etc/UTC`, not a city nickname. Scheduling uses elapsed intervals, not a fixed wall-clock appointment. |
 | `START_USBMUXD` | `1` | Starts the USB multiplexer that libimobiledevice uses to communicate with the phone | Keep `1` for the supplied USB installation. Set `0` only if you have deliberately provided a working external usbmuxd/socket configuration, or an export-only setup with no live phone. This switch alone does not connect to a host service or enable Wi-Fi. Do not run competing USB backup services. |
+| `WIFI_USBMUXD_SOCKET` | Empty | Optional Unix socket used only for Wi-Fi discovery, encryption and backup commands | Leave blank for USB-only operation. The Wi-Fi Compose override sets `/run/imessage-wifi/usbmuxd.sock`; template users must add both this variable and the shared directory mapping. Never set the global `USBMUXD_SOCKET_ADDRESS` to the Wi-Fi socket: USB pairing must keep its original service. See the [Wi-Fi guide](docs/wifi.md). |
+| `WIFI_PAIRING_PATH` | `/mnt/cache/appdata/imessage-archive/lockdown` | Compose-only host pairing directory mounted read-only in the Wi-Fi helper | Must be exactly the app's existing `/var/lib/lockdown` host mapping. This contains private trust keys, not backups. Do not create a second pairing identity or publish this directory. |
+| `WIFI_RUN_PATH` | `/mnt/cache/appdata/imessage-archive/wifi-run` | Compose-only shared directory for the Wi-Fi helper's Unix socket | Keep on cache, root-owned and private (`700`). The app mounts it read-only; the helper can create its socket here. This is not a backup destination. Both containers must use the same path. |
+| `WIFI_IMAGE` | `imessage-archive-wifi:local` | Compose-only image for the optional wireless discovery helper | Source builds create this local tag with the `wifi-discovery` Docker target. For `--no-build` installs use the Wi-Fi candidate image paired with the tested app image. No stable Wi-Fi image is implied by this default. |
 | `LOG_LINES` | `300` | Maximum recent job-log lines retained/displayed | Whole number, minimum `50`. Keep `300` for responsive status updates. Increase moderately for troubleshooting, not to thousands of attachment lines. Older lines are discarded from the in-memory job log; this is not a complete persistent log archive. |
 
 ### PDF and conversation performance
@@ -236,6 +241,7 @@ These are included for completeness, not required installation settings. Build a
 | Variable | Default | What it does | How to use it |
 | --- | --- | --- | --- |
 | `IMESSAGE_EXPORTER_VERSION` | Pinned in [Dockerfile](Dockerfile) | Docker build argument selecting the Rust exporter version | For source builds only, pass `--build-arg IMESSAGE_EXPORTER_VERSION=...` to `docker build` and verify CLI compatibility. The published image already includes its exporter; a Container Variable does not replace it. Renovate proposes changes to this single default. |
+| `NETMUXD_REV` | Pinned commit in [Dockerfile](Dockerfile) | Build argument selecting the optional Wi-Fi discovery service's upstream source | The `wifi-discovery` target builds this exact commit with its Cargo lockfile, not a moving branch. Update deliberately and run both synthetic wireless tests and an iPhone test before promotion. This is not a runtime Container Variable. |
 | `APP_VERSION` | `4.0.1` | Docker build argument for the image's version label | Release-maintainer metadata, not a feature switch or update command. Do not set it as a Container Variable to upgrade the app; pull the desired image tag instead. |
 | `PYTHONDONTWRITEBYTECODE` | `1` in the image | Prevents Python from creating bytecode-cache files | Internal image default; no normal user action needed. |
 | `PYTHONUNBUFFERED` | `1` in the image | Sends Python output to container logs without normal buffering | Internal image default; leave unchanged. |
@@ -327,7 +333,7 @@ The **Automation** section stores settings in `/data/config/settings.json`:
 - Generic JSON webhook notifications without message content
 - Retention for old rotated exports and generated PDFs
 
-Scheduled Wi-Fi backups require a previously paired iPhone that is visible to `idevice_id -n -l`. The scheduler waits when the phone is unavailable and never overlaps another job. A retention value of `0` disables deletion. Backups are never removed by retention; deleting a backup requires typing its folder name.
+Scheduled Wi-Fi backups require a previously paired iPhone and a working Wi-Fi discovery service; see the [Wi-Fi guide](docs/wifi.md). The app now uses `idevice_id -n` for network-only discovery, never `-n -l` (which includes USB). The scheduler waits when the phone is unavailable and never overlaps another job. A retention value of `0` disables deletion. Backups are never removed by retention; deleting a backup requires typing its folder name.
 
 In this version, retention is applied when you select **Apply retention cleanup**, not automatically after every job. Positive retention values make old files eligible; saving them alone does not delete files. Review the settings and retain another copy before cleanup. The scheduled backup destination is updated incrementally per device; it is not a series of dated immutable snapshots. To keep an older backup, preserve a separate copy outside that live destination.
 
@@ -383,7 +389,7 @@ If a large job is running, the web interface remains responsive because command 
 | **The form expired / HTTP 403.** | Reload the page to obtain a new form token, then retry. This can happen after restarting or changing the session secret. A viewer account cannot run jobs; use the administrator account for those actions. |
 | **The phone charges, but no device appears.** | Unlock it, use a known data-capable cable, accept Trust/passcode prompts, check `/dev/bus/usb` is mounted and `START_USBMUXD=1`, and ensure no competing usbmuxd owns the phone. Use the commands below to distinguish USB detection from pairing. |
 | **Pairing says a passcode is set / Device locked (208).** | Enter the passcode on the iPhone, leave it unlocked, and retry pairing or backup. Charging alone is not evidence of a working data connection. |
-| **Wi-Fi backups never start.** | Complete USB trust/pairing and a manual USB backup first. Check that `idevice_id -n -l` sees the device and that the preferred phone is available. Same-LAN membership or `SCHEDULE_NETWORK=1` alone does not establish Wi-Fi backup support. Use USB when network discovery is unavailable. |
+| **Wi-Fi backups never start.** | Follow the [Wi-Fi setup guide](docs/wifi.md). Enable the phone's wireless connections over trusted USB, install the separate discovery helper, and run **Check Wi-Fi** after unplugging USB. Stock Linux usbmuxd does not provide this discovery. Same-LAN membership or `SCHEDULE_NETWORK=1` alone is insufficient. Keep scheduling off until the connection and a manual backup have been tested. |
 | **No backup with a Manifest file found.** | Confirm the backup job actually completed and that the Backups host mapping contains its device folder under `latest`. An empty replacement mount or failed/locked backup is not a usable archive. Do not delete a valid older backup to fix discovery. |
 | **Not enough free disk space / estimated export larger than free space.** | Check both backup and export destinations in **Storage**. Reduce the contact/date range or disable attachment copies for a text-focused export, or choose a larger private share. `/mnt/user` may still use cache according to share settings. Changing a mount does not migrate existing files; verify a separate migration before recreating. Do not blindly bypass the warning. |
 | **Attachment not found at specified path.** | Verify the selected backup and run diagnostics. Check that mounts still point to the original files and that the backup completed. Some media may be absent from a local backup; conversion cannot recover it. Messages can still export without those attachments. |
@@ -407,12 +413,12 @@ docker inspect imessage-archive --format '{{range .Mounts}}{{println .Destinatio
 docker logs --tail=100 imessage-archive
 lsusb
 docker exec imessage-archive idevice_id -l
-docker exec imessage-archive idevice_id -n -l
+docker exec imessage-archive idevice_id -n
 docker exec imessage-archive idevicepair validate
 curl --fail http://127.0.0.1:8087/healthz
 ```
 
-Substitute your chosen web port in the health-check URL. For multiple phones, select the device in the UI rather than assuming the first one is correct. If the above checks do not resolve a problem, generate a **Create support bundle**, inspect it before sharing, and use [app issues](https://github.com/crywolf203/imessage-archive/issues) for a reproducible error. A bundle is not permission to publish actual phone backups or message exports.
+Substitute your chosen web port in the health-check URL. With the optional Wi-Fi sidecar, use the socket-specific discovery command in the [Wi-Fi guide](docs/wifi.md) instead of the plain network command above. For multiple phones, select the device in the UI rather than assuming the first one is correct. If the above checks do not resolve a problem, generate a **Create support bundle**, inspect it before sharing, and use [app issues](https://github.com/crywolf203/imessage-archive/issues) for a reproducible error. A bundle is not permission to publish actual phone backups or message exports.
 
 ## License
 
@@ -427,6 +433,8 @@ iMessage Archive would not be possible without the work of these open-source aut
 | **[imessage-exporter](https://github.com/ReagentX/imessage-exporter), by [ReagentX](https://github.com/ReagentX) and contributors** | The core message parser, database diagnostics, HTML/text exports, and original exported conversation styling. This app invokes the upstream exporter; it does not claim authorship of that work. |
 | **[libimobiledevice](https://github.com/libimobiledevice/libimobiledevice)** | iPhone communication, trust/pairing tools, device information, and local backups through `idevicebackup2`. |
 | **[usbmuxd](https://github.com/libimobiledevice/usbmuxd)** | The device connection service used by the iPhone tools. |
+| **[pymobiledevice3](https://github.com/doronz88/pymobiledevice3), by doronz88 and contributors** | Enabling iPhone Wi-Fi connections using the existing trusted USB pairing. Installed in an isolated Python environment. |
+| **[netmuxd](https://github.com/jkcoxson/netmuxd), by Jackson Coxson and contributors** | The optional network-only Bonjour discovery and connection service. Its separate image includes the upstream LGPL-2.1 license and pins an exact source revision. |
 | **[Chromium](https://www.chromium.org/Home/)** | Server-side HTML layout and print-to-PDF rendering. |
 | **[ImageMagick](https://imagemagick.org/) and [libheif](https://github.com/strukturag/libheif)** | Image resizing and conversion, including HEIC/HEIF support for compatible exports and PDF images. |
 | **[FFmpeg](https://ffmpeg.org/)** | Audio and video conversion when requested through the exporter's conversion options. |

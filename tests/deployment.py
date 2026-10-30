@@ -56,6 +56,31 @@ for field in ("environment", "volumes", "ports", "labels", "healthcheck"):
     assert compose_services[0][field] == compose_services[1][field], field
 
 result = subprocess.run(
+    ["docker", "compose", "--env-file", ".env.example", "-f", "docker-compose.image.yml",
+     "-f", "docker-compose.wifi.yml", "config", "--format", "json"],
+    cwd=root, capture_output=True, text=True, check=True,
+)
+wireless = json.loads(result.stdout)["services"]
+wifi_app = wireless["imessage-archive"]
+helper = wireless["imessage-archive-wifi"]
+assert wifi_app["ports"] == compose_services[1]["ports"]
+assert wifi_app["environment"]["START_USBMUXD"] == "1"
+assert "USBMUXD_SOCKET_ADDRESS" not in wifi_app["environment"]
+assert wifi_app["environment"]["WIFI_USBMUXD_SOCKET"] == "/run/imessage-wifi/usbmuxd.sock"
+for volume in compose_services[1]["volumes"]:
+    assert volume in wifi_app["volumes"], "Wi-Fi changed an existing data mapping"
+assert helper["network_mode"] == "host" and helper["read_only"]
+assert not helper.get("privileged", False) and not helper.get("ports")
+assert helper["cap_drop"] == ["ALL"]
+assert helper["security_opt"] == ["no-new-privileges:true"]
+assert {volume["target"] for volume in helper["volumes"]} == {"/var/lib/lockdown", "/run/imessage-wifi"}
+pairing = next(v for v in helper["volumes"] if v["target"] == "/var/lib/lockdown")
+assert pairing["read_only"]
+app_socket = next(v for v in wifi_app["volumes"] if v["target"] == "/run/imessage-wifi")
+helper_socket = next(v for v in helper["volumes"] if v["target"] == "/run/imessage-wifi")
+assert app_socket["read_only"] and app_socket["source"] == helper_socket["source"]
+
+result = subprocess.run(
     ["docker", "compose", "--env-file", ".env.example", "-f", "docker-compose.image.yml", "-f", "tests/compose.ci.yml", "config", "--format", "json"],
     cwd=root, capture_output=True, text=True, check=True,
 )
@@ -80,4 +105,4 @@ assert staging["environment"]["START_USBMUXD"] == "0"
 assert staging["environment"]["SCHEDULE_ENABLED"] == "0"
 assert all(volume["type"] == "volume" for volume in staging["volumes"])
 assert all(port["published"] != compose_services[0]["ports"][0]["published"] for port in staging["ports"])
-print("Unraid, production Compose, CI isolation and staging isolation contracts passed")
+print("Unraid, production Compose, Wi-Fi isolation, CI isolation and staging contracts passed")

@@ -68,5 +68,8 @@ with viewer.session_transaction() as state:
 assert viewer.post(
     "/library/index", data={"csrf_token": viewer_csrf}
 ).status_code == 403
+for path in ("/device/wifi/enable", "/device/wifi/check"):
+    assert admin.post(path).status_code == 403, "Wi-Fi actions require CSRF protection"
+    assert viewer.post(path, data={"csrf_token": viewer_csrf}).status_code == 403
 
 print("authentication and authorization smoke tests passed")
