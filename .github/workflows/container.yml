@@ -96,7 +96,7 @@ jobs:
           wifi_image: ${{ env.IMAGE }}-wifi
       - name: Log in only after regression tests pass
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-        uses: docker/login-action@v3
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
